@@ -6,6 +6,7 @@ export interface IUserDoc extends Document {
   password: string;
   role: 'admin' | 'faculty' | 'student';
   department: string;
+  semester: number;
   avatar: string;
   createdAt: Date;
   updatedAt: Date;
@@ -18,6 +19,7 @@ const UserSchema = new Schema<IUserDoc>(
     password: { type: String, required: true, select: false },
     role: { type: String, enum: ['admin', 'faculty', 'student'], default: 'student' },
     department: { type: String, default: '' },
+    semester: { type: Number, default: 1 },
     avatar: { type: String, default: '' },
   },
   { timestamps: true }

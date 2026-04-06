@@ -7,6 +7,8 @@ export interface ILessonPlanDoc extends Document {
   objectives: string[];
   activities: { time: string; description: string }[];
   assessment: string;
+  flaggedByAi: boolean;
+  approvalStatus: 'pending' | 'approved' | 'rejected';
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -25,6 +27,8 @@ const LessonPlanSchema = new Schema<ILessonPlanDoc>(
       },
     ],
     assessment: { type: String, required: true },
+    flaggedByAi: { type: Boolean, default: false },
+    approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true }

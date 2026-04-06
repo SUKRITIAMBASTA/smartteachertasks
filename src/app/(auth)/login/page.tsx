@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { LogIn, GraduationCap, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
@@ -41,82 +40,82 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <div className="auth-page min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-2xl shadow-indigo-100/50 border border-slate-100">
 
         {/* Logo */}
-        <div className="auth-logo">
-          <GraduationCap size={40} className="text-indigo-500 mb-2" />
-          <h1>SmartTeach</h1>
-          <p>College Support System</p>
+        <div className="text-center mb-8">
+          <div className="inline-flex p-3 bg-indigo-50 rounded-2xl text-indigo-600 mb-4">
+            <GraduationCap size={40} />
+          </div>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">SmartTeach</h1>
+          <p className="text-slate-500 font-medium">Verify your identity to proceed</p>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="alert-error text-center">
+          <div className="p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-xs font-bold text-center mb-6 animate-shake">
             {error}
           </div>
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
 
-          {/* Email */}
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1" htmlFor="email">Email Address</label>
             <input
               id="email"
               type="email"
-              className="form-input"
+              autoComplete="email"
+              className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-medium text-slate-700"
               placeholder="you@college.edu"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              autoComplete="email"
             />
           </div>
 
-          {/* Password */}
-          <div className="form-group relative">
-            <label htmlFor="password">Password</label>
-
+          <div className="space-y-1.5 relative">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1" htmlFor="password">Password</label>
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
-              className="form-input pr-10"
-              placeholder="Enter your password"
+              autoComplete="current-password"
+              className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all pr-14 font-medium text-slate-700"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete="current-password"
             />
-
-            {/* Show / Hide */}
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600"
+              className="absolute right-5 top-10 text-slate-400 hover:text-indigo-600 transition-colors"
             >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
 
-          {/* Button */}
           <button
             type="submit"
-            className="btn btn-primary btn-full"
+            className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50 mt-4 group"
             disabled={loading}
           >
-            <LogIn size={18} />
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                <LogIn size={20} className="group-hover:translate-x-1 transition-transform" />
+                SIGN IN
+              </>
+            )}
           </button>
         </form>
 
-        {/* Footer */}
-        <div className="auth-footer">
-          Don&apos;t have an account?{' '}
-          <Link href="/register">Register</Link>
-        </div>
+        <p className="text-center mt-8 text-xs text-slate-400 font-medium">
+          Protected by University Security Protocols
+        </p>
 
       </div>
     </div>

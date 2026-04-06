@@ -8,9 +8,11 @@ export interface IResourceDoc extends Document {
   fileName: string;
   fileSize: string;
   course: string;
-  cloudinaryId?: string;
+  googleDriveFileId?: string;
   uploadedBy: mongoose.Types.ObjectId;
   tags: string[];
+  category: 'Lecture Notes' | 'Syllabus' | 'Reference Material' | 'Class Timetable' | 'Exam Schedule - Mid Sem' | 'Exam Schedule - End Sem' | 'Other';
+  approvalStatus: 'pending' | 'approved' | 'rejected';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,8 +26,14 @@ const ResourceSchema = new Schema<IResourceDoc>(
     fileName: { type: String, default: '' },
     fileSize: { type: String, default: '' },
     course: { type: String, default: 'General' },
-    cloudinaryId: { type: String },
+    googleDriveFileId: { type: String },
     uploadedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    category: { 
+      type: String, 
+      enum: ['Lecture Notes', 'Syllabus', 'Reference Material', 'Class Timetable', 'Exam Schedule - Mid Sem', 'Exam Schedule - End Sem', 'Other'],
+      default: 'Other'
+    },
+    approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
     tags: [{ type: String }],
   },
   { timestamps: true }

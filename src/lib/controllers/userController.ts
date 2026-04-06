@@ -16,6 +16,20 @@ export async function createUser(data: { name: string; email: string; password: 
   return obj;
 }
 
+export async function updateUser(id: string, data: Partial<{ name: string; role: string; department: string }>) {
+  await dbConnect();
+  // We only allow updating specific fields for now
+  const allowed = ['name', 'role', 'department'];
+  const update: any = {};
+  Object.keys(data).forEach(key => {
+    if (allowed.includes(key)) {
+      update[key] = (data as any)[key];
+    }
+  });
+
+  return User.findByIdAndUpdate(id, { $set: update }, { new: true }).lean();
+}
+
 export async function deleteUser(id: string) {
   await dbConnect();
   return User.findByIdAndDelete(id).lean();

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getAllAnnouncements, createAnnouncement, deleteAnnouncement } from '@/lib/controllers/announcementController';
+import { getAllAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncementPin } from '@/lib/controllers/announcementController';
 
 export async function GET() {
   try {
@@ -23,6 +23,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const announcement = await createAnnouncement({ ...body, author: (session.user as any).id });
     return NextResponse.json(announcement, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+    const body = await req.json();
+    const { id, pinned } = body;
+    if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+    
+    const announcement = await updateAnnouncementPin(id, pinned);
+    return NextResponse.json(announcement);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

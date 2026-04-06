@@ -36,3 +36,8 @@ export async function getTicketStats() {
   ]);
   return { total, open, inProgress, resolved };
 }
+
+export async function deleteTicket(id: string) {
+  await dbConnect();
+  return Ticket.findByIdAndDelete(id).lean();
+}

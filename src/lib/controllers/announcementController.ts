@@ -11,8 +11,29 @@ export async function getAllAnnouncements(role: string) {
 
 export async function createAnnouncement(data: { title: string; content: string; author: string; targetRoles: string[]; pinned: boolean }) {
   await dbConnect();
+  
+  if (data.pinned) {
+    const pinnedCount = await Announcement.countDocuments({ pinned: true });
+    if (pinnedCount >= 3) {
+      throw new Error('Limit Reached: Only 3 announcements can be pinned at any time.');
+    }
+  }
+
   const ann = await Announcement.create(data);
   return ann.toObject();
+}
+
+export async function updateAnnouncementPin(id: string, pinned: boolean) {
+  await dbConnect();
+  
+  if (pinned) {
+    const pinnedCount = await Announcement.countDocuments({ pinned: true });
+    if (pinnedCount >= 3) {
+      throw new Error('Limit Reached: Only 3 announcements can be pinned at any time.');
+    }
+  }
+
+  return Announcement.findByIdAndUpdate(id, { pinned }, { new: true }).lean();
 }
 
 export async function deleteAnnouncement(id: string) {

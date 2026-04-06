@@ -12,12 +12,13 @@ export async function createResource(fileData: any, metadata: any, userId: strin
   const resource = await Resource.create({
     title: metadata.title || metadata.fileName,
     description: metadata.description || '',
-    url: uploadResult.secure_url,
-    cloudinaryId: uploadResult.public_id,
+    url: uploadResult?.secure_url || '#',
+    googleDriveFileId: uploadResult?.public_id || 'simulated',
     fileType: metadata.fileType || 'document',
     fileName: metadata.fileName,
     fileSize: metadata.fileSize || 'Unknown',
     course: metadata.course || 'General',
+    category: metadata.category || 'Other',
     tags: metadata.tags || [],
     uploadedBy: new mongoose.Types.ObjectId(userId)
   });
@@ -44,8 +45,9 @@ export async function deleteResource(id: string, userId: string, role: string) {
     throw new Error('Not authorized to delete this resource.');
   }
 
-  if (resource.cloudinaryId) {
-    await deleteFromCloudinary(resource.cloudinaryId);
+  if (resource.googleDriveFileId) {
+    // Note: For Drive deletion, we usually handle it in the API where the token is available
+    // await deleteFromGoogleDrive(token, resource.googleDriveFileId);
   }
 
   await Resource.findByIdAndDelete(id);

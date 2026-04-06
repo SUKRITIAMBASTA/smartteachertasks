@@ -1,6 +1,7 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
+import GoogleProvider from 'next-auth/providers/google';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
 
@@ -27,13 +28,53 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          scope: 'openid email profile https://www.googleapis.com/auth/drive.file',
+          prompt: 'consent',
+          access_type: 'offline',
+          response_type: 'code'
+        }
+      }
+    }),
   ],
   session: { strategy: 'jwt' },
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account }) {
+      if (account?.provider === 'google') {
+        const email = user.email;
+        if (!email) return false;
+        
+        await dbConnect();
+        let dbUser = await User.findOne({ email });
+        
+        // If user doesn't exist, we auto-register them as a student
+        // This allows 'Linking' a personal drive even if it's not pre-registered
+        if (!dbUser) {
+          dbUser = await User.create({
+            name: user.name || 'Google User',
+            email: email,
+            role: 'student', // Default role for new Google accounts
+            password: await bcrypt.hash(Math.random().toString(36), 10),
+            department: 'General'
+          });
+        }
+        
+        user.id = dbUser._id.toString();
+        (user as any).role = dbUser.role;
+      }
+      return true;
+    },
+    async jwt({ token, account, user }) {
       if (user) {
         token.role = (user as any).role;
         token.id = (user as any).id;
+      }
+      if (account) {
+        token.accessToken = account.access_token;
       }
       return token;
     },
@@ -41,6 +82,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).role = token.role;
         (session.user as any).id = token.id;
+        (session.user as any).accessToken = token.accessToken;
       }
       return session;
     },
