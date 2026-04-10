@@ -23,15 +23,14 @@ export async function PATCH(req: NextRequest) {
     await dbConnect();
 
     // 1. Build Targeted Query for Validation
-    let query: any = {};
+    let query: any = { status: 'pending_approval' }; // Default only to pending items
     if (departmentId) query.departmentId = departmentId;
     if (semester) query.semester = Number(semester);
     if (facultyId) query.facultyId = facultyId;
     if (roomId) query.roomId = roomId;
 
-    if (Object.keys(query).length === 0) {
-      return NextResponse.json({ error: 'Target filters (Dept, Faculty, or Room) required for approval' }, { status: 400 });
-    }
+    // Remove status: 'pending_approval' if it was explicitly requested for all (optional)
+    // Actually, it's safer to only approve pending ones.
 
     // 2. Perform Bulk Status Elevation
     const result = await Schedule.updateMany(query, { status: 'approved' });

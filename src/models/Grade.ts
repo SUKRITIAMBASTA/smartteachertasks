@@ -3,21 +3,21 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 export interface IGradeDoc extends Document {
   student: mongoose.Types.ObjectId;
   subject: mongoose.Types.ObjectId;
-  
+
   // Internal Marks (Total 40)
-  attendanceMarks: number;    // 0-5
-  assignmentMarks: number;    // 0-5 (Lab Record/Assignment)
-  midSemMarks: number;        // 0-10
-  internalVivaMarks: number;   // 0-10
-  externalVivaMarks: number;   // 0-10 (Viva taken by external, but counts in internal 40 part of the sheet)
-  
+  attendanceMarks: number;    // 0–5
+  assignmentMarks: number;    // 0–5
+  midSemMarks: number;        // 0–10
+  internalVivaMarks: number;  // 0–10
+  externalVivaMarks: number;  // 0–10
+
   // External Marks (Total 60)
-  endSemMarks: number;        // 0-60
-  
+  endSemMarks: number;        // 0–60
+
   // Computed
-  totalMarks: number;         // sum of all above (0-100)
-  grade: string;              // A+, A, B, etc.
-  
+  totalMarks: number;
+  grade: string;
+
   gradedBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -25,46 +25,52 @@ export interface IGradeDoc extends Document {
 
 const GradeSchema = new Schema<IGradeDoc>(
   {
-    student: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    subject: { type: Schema.Types.ObjectId, ref: 'Subject', required: true },
-    
-    attendanceMarks: { type: Number, default: 0, min: 0, max: 5 },
-    assignmentMarks: { type: Number, default: 0, min: 0, max: 5 },
-    midSemMarks: { type: Number, default: 0, min: 0, max: 10 },
+    student:  { type: Schema.Types.ObjectId, ref: 'User',    required: true },
+    subject:  { type: Schema.Types.ObjectId, ref: 'Subject', required: true },
+
+    attendanceMarks:   { type: Number, default: 0, min: 0, max: 5  },
+    assignmentMarks:   { type: Number, default: 0, min: 0, max: 5  },
+    midSemMarks:       { type: Number, default: 0, min: 0, max: 10 },
     internalVivaMarks: { type: Number, default: 0, min: 0, max: 10 },
     externalVivaMarks: { type: Number, default: 0, min: 0, max: 10 },
-    
-    endSemMarks: { type: Number, default: 0, min: 0, max: 60 },
-    
+    endSemMarks:       { type: Number, default: 0, min: 0, max: 60 },
+
     totalMarks: { type: Number, default: 0 },
-    grade: { type: String, default: 'F' },
-    
+    grade:      { type: String, default: 'F' },
+
     gradedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true }
 );
 
-// Pre-save hook to calculate total and grade
-GradeSchema.pre('save', function(next) {
-  this.totalMarks = 
-    (this.attendanceMarks || 0) + 
-    (this.assignmentMarks || 0) + 
-    (this.midSemMarks || 0) + 
-    (this.internalVivaMarks || 0) + 
-    (this.externalVivaMarks || 0) + 
-    (this.endSemMarks || 0);
+// Helper — reusable from both pre-save hook and controller
+export function computeGrade(doc: Partial<IGradeDoc>): { totalMarks: number; grade: string } {
+  const totalMarks =
+    (doc.attendanceMarks   || 0) +
+    (doc.assignmentMarks   || 0) +
+    (doc.midSemMarks       || 0) +
+    (doc.internalVivaMarks || 0) +
+    (doc.externalVivaMarks || 0) +
+    (doc.endSemMarks       || 0);
 
-  const t = this.totalMarks;
-  if (t > 90) this.grade = 'A+';
-  else if (t > 80) this.grade = 'A';
-  else if (t > 70) this.grade = 'B';
-  else if (t > 60) this.grade = 'C';
-  else if (t > 50) this.grade = 'D';
-  else if (t > 40) this.grade = 'E';
-  else this.grade = 'F';
+  let grade = 'F';
+  if      (totalMarks > 90) grade = 'A+';
+  else if (totalMarks > 80) grade = 'A';
+  else if (totalMarks > 70) grade = 'B';
+  else if (totalMarks > 60) grade = 'C';
+  else if (totalMarks > 50) grade = 'D';
+  else if (totalMarks > 40) grade = 'E';
 
-  next();
+  return { totalMarks, grade };
+}
+
+// Use a virtual to avoid the Mongoose pre('save') type conflict in this TS version
+GradeSchema.pre<IGradeDoc>('validate', function () {
+  const { totalMarks, grade } = computeGrade(this);
+  this.totalMarks = totalMarks;
+  this.grade      = grade;
 });
 
-const Grade: Model<IGradeDoc> = mongoose.models.Grade || mongoose.model<IGradeDoc>('Grade', GradeSchema);
+const Grade: Model<IGradeDoc> =
+  mongoose.models.Grade || mongoose.model<IGradeDoc>('Grade', GradeSchema);
 export default Grade;

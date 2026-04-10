@@ -5,9 +5,7 @@ import Subject from '@/models/Subject';
 import Rubric from '@/models/Rubric';
 import mongoose from 'mongoose';
 
-/**
- * 📝 Legacy Rubric Support
- */
+/* ── Rubric (legacy) ─────────────────────────────────────── */
 export async function createRubric(data: any) {
   await dbConnect();
   return await Rubric.create(data);
@@ -15,9 +13,7 @@ export async function createRubric(data: any) {
 
 export async function getRubrics(teacherId: string, role: string) {
   await dbConnect();
-  if (role === 'admin') {
-    return await Rubric.find().sort({ createdAt: -1 });
-  }
+  if (role === 'admin') return await Rubric.find().sort({ createdAt: -1 });
   return await Rubric.find({ createdBy: teacherId }).sort({ createdAt: -1 });
 }
 
@@ -26,89 +22,102 @@ export async function getRubricById(id: string) {
   return await Rubric.findById(id);
 }
 
-/**
- * 🎓 Fetch students that a faculty member is specifically teaching.
- * Logic: Find all subjects assigned to this faculty, then find all students in those same departments/semesters.
- */
+/* ── Subjects assigned to a faculty member ───────────────── */
+export async function getFacultySubjects(facultyId: string) {
+  await dbConnect();
+  return Subject.find({ assignedFaculty: new mongoose.Types.ObjectId(facultyId) })
+    .sort({ semester: 1, name: 1 })
+    .lean();
+}
+
+/* ── Students a faculty member teaches ───────────────────── */
 export async function getStudentsForFaculty(facultyId: string) {
   await dbConnect();
 
-  // 1. Find subjects assigned to the faculty
-  const subjects = await Subject.find({ assignedFaculty: new mongoose.Types.ObjectId(facultyId) }).lean();
-  
+  const subjects = await Subject.find({
+    assignedFaculty: new mongoose.Types.ObjectId(facultyId),
+  }).lean();
+
   if (!subjects.length) return [];
 
-  // 2. Extract departments and semesters the faculty is teaching in
-  const departments = [...new Set(subjects.map(s => s.departmentId.toString()))];
-  const semesters = [...new Set(subjects.map(s => s.semester))];
+  const deptIds  = [...new Set(subjects.map((s) => s.departmentId.toString()))];
+  const semesters = [...new Set(subjects.map((s) => s.semester))];
 
-  // 3. Find students matching these criteria
-  // We need to resolve department names to IDs if necessary, or vice versa.
-  // Assuming User.department is a string name for now based on previous model check.
   const students = await User.find({
     role: 'student',
-    semester: { $in: semesters }
-    // department filtering could be added here if Department model is linked to User.department string
-  }).select('name email department semester').sort({ name: 1 }).lean();
+    semester: { $in: semesters },
+    departmentId: { $in: deptIds.map((id) => new mongoose.Types.ObjectId(id)) },
+  })
+    .select('name email departmentId semester')
+    .sort({ name: 1 })
+    .lean();
 
   return students;
 }
 
-/**
- * 📝 Submit or update marks for a student in a specific subject.
- */
+/* ── Submit / update marks (triggers pre-save hooks) ─────── */
 export async function submitMarks(data: any) {
   await dbConnect();
-  
+
   const { studentId, subjectId, gradedBy, ...marks } = data;
 
-  const filter = {
+  // Use find + save so Mongoose pre-save hooks (totalMarks + grade calc) fire
+  let gradeDoc = await Grade.findOne({
     student: new mongoose.Types.ObjectId(studentId),
     subject: new mongoose.Types.ObjectId(subjectId),
-  };
-
-  const update = {
-    ...marks,
-    gradedBy: new mongoose.Types.ObjectId(gradedBy),
-  };
-
-  // findOneAndUpdate with upsert:true to handle create or update
-  // Pre-save hook in Grade.ts will handle totalMarks and Grade calculation
-  const result = await Grade.findOneAndUpdate(filter, update, {
-    upsert: true,
-    new: true,
-    runValidators: true
   });
 
-  return result;
+  if (gradeDoc) {
+    // Update fields
+    Object.assign(gradeDoc, { ...marks, gradedBy: new mongoose.Types.ObjectId(gradedBy) });
+  } else {
+    gradeDoc = new Grade({
+      student:    new mongoose.Types.ObjectId(studentId),
+      subject:    new mongoose.Types.ObjectId(subjectId),
+      gradedBy:   new mongoose.Types.ObjectId(gradedBy),
+      ...marks,
+    });
+  }
+
+  await gradeDoc.save(); // triggers pre-save → totalMarks + grade
+  return gradeDoc.toObject();
 }
 
-/**
- * 📊 Get all grades for a specific subject (Admin/Faculty use)
- */
+/* ── All grades for a subject (faculty/admin) ────────────── */
 export async function getGradesForSubject(subjectId: string) {
   await dbConnect();
   return Grade.find({ subject: new mongoose.Types.ObjectId(subjectId) })
-    .populate('student', 'name email department semester')
+    .populate('student', 'name email departmentId semester')
     .sort({ totalMarks: -1 })
     .lean();
 }
 
-/**
- * 🧒 Get grades for a specific student (Student use)
- */
+/* ── All grades for a student (student self-view) ────────── */
 export async function getStudentGrades(studentId: string) {
   await dbConnect();
   return Grade.find({ student: new mongoose.Types.ObjectId(studentId) })
-    .populate('subject', 'name code')
+    .populate('subject', 'name code semester')
     .sort({ createdAt: -1 })
     .lean();
 }
 
-/**
- * 📋 Get subjects assigned to a faculty
- */
-export async function getFacultySubjects(facultyId: string) {
+/* ── Summary stats for a subject ─────────────────────────── */
+export async function getSubjectGradeSummary(subjectId: string) {
   await dbConnect();
-  return Subject.find({ assignedFaculty: new mongoose.Types.ObjectId(facultyId) }).lean();
+  const grades = await Grade.find({ subject: new mongoose.Types.ObjectId(subjectId) }).lean();
+  if (!grades.length) return { count: 0, avg: 0, pass: 0, fail: 0, distribution: {} };
+
+  const total = grades.reduce((s, g) => s + g.totalMarks, 0);
+  const distribution: Record<string, number> = {};
+  grades.forEach((g) => {
+    distribution[g.grade] = (distribution[g.grade] || 0) + 1;
+  });
+
+  return {
+    count:        grades.length,
+    avg:          +(total / grades.length).toFixed(2),
+    pass:         grades.filter((g) => g.totalMarks >= 40).length,
+    fail:         grades.filter((g) => g.totalMarks < 40).length,
+    distribution,
+  };
 }

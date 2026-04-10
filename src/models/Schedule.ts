@@ -5,10 +5,12 @@ export interface IScheduleDoc extends Document {
   semester: number;
   date: Date;
   timeSlot: string; // e.g., "08:30-09:10"
+  shift: 'morning' | 'evening';
   subjectId: mongoose.Types.ObjectId;
   facultyId: mongoose.Types.ObjectId;
   roomId: mongoose.Types.ObjectId;
   isLab: boolean;
+  type: 'routine' | 'midsem' | 'endsem';
   status: 'pending_approval' | 'approved' | 'adjusted';
   createdAt: Date;
   updatedAt: Date;
@@ -20,6 +22,7 @@ const ScheduleSchema = new Schema<IScheduleDoc>(
     semester: { type: Number, required: true },
     date: { type: Date, required: true },
     timeSlot: { type: String, required: true },
+    shift: { type: String, enum: ['morning', 'evening'], default: 'morning' },
     subjectId: { type: Schema.Types.ObjectId, ref: 'Subject', required: true },
     facultyId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     roomId: { type: Schema.Types.ObjectId, ref: 'Room', required: true },

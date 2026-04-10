@@ -25,6 +25,9 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           role: user.role,
+          assignedSubjects: user.assignedSubjects || [],
+          departmentId: user.departmentId ? user.departmentId.toString() : null,
+          semester: user.semester || 1,
         };
       },
     }),
@@ -33,7 +36,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: 'openid email profile https://www.googleapis.com/auth/drive.file',
+          scope: 'openid email profile',
           prompt: 'consent',
           access_type: 'offline',
           response_type: 'code'
@@ -51,20 +54,22 @@ export const authOptions: NextAuthOptions = {
         await dbConnect();
         let dbUser = await User.findOne({ email });
         
-        // If user doesn't exist, we auto-register them as a student
-        // This allows 'Linking' a personal drive even if it's not pre-registered
+        // If user doesn't exist, auto-register them as a student
         if (!dbUser) {
           dbUser = await User.create({
             name: user.name || 'Google User',
             email: email,
-            role: 'student', // Default role for new Google accounts
+            role: 'student',
             password: await bcrypt.hash(Math.random().toString(36), 10),
-            department: 'General'
+            institution: 'ASET'
           });
         }
         
         user.id = dbUser._id.toString();
         (user as any).role = dbUser.role;
+        (user as any).assignedSubjects = dbUser.assignedSubjects || [];
+        (user as any).departmentId = dbUser.departmentId ? dbUser.departmentId.toString() : null;
+        (user as any).semester = dbUser.semester || 1;
       }
       return true;
     },
@@ -72,6 +77,9 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = (user as any).role;
         token.id = (user as any).id;
+        token.assignedSubjects = (user as any).assignedSubjects;
+        token.departmentId = (user as any).departmentId;
+        token.semester = (user as any).semester;
       }
       if (account) {
         token.accessToken = account.access_token;
@@ -82,6 +90,9 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).role = token.role;
         (session.user as any).id = token.id;
+        (session.user as any).assignedSubjects = token.assignedSubjects;
+        (session.user as any).departmentId = token.departmentId;
+        (session.user as any).semester = token.semester;
         (session.user as any).accessToken = token.accessToken;
       }
       return session;

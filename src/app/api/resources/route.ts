@@ -1,32 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/db';
-import Resource from '@/models/Resource';
-import { uploadToGoogleDrive, deleteFromGoogleDrive } from '@/lib/googleDriveService';
-import mongoose from 'mongoose';
+import { createResource, getResources, deleteResource } from '@/lib/controllers/resourceController';
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    await dbConnect();
-
     const { searchParams } = new URL(req.url);
-    const course = searchParams.get('course');
-    const category = searchParams.get('category');
-    const role = (session.user as any).role;
+    const query: any = {};
+    if (searchParams.get('course')) query.course = searchParams.get('course');
+    if (searchParams.get('category')) query.category = searchParams.get('category');
 
-    let query: any = {};
-    if (course) query.course = course;
-    if (category) query.category = category;
+    const user = session.user as any;
+    if (user.role === 'student') {
+      // 🎓 Students: Locked to their specific department and semester
+      query.departmentId = user.departmentId;
+      query.semester = user.semester || 1;
+    } else if (user.role === 'faculty') {
+      // 👨‍🏫 Faculty: See everything in their assigned department
+      query.departmentId = user.departmentId;
+    }
+    // ⚡ Admin: No restrictions unless params provided
 
-    const resources = await Resource.find(query)
-      .populate('uploadedBy', 'name email role department')
-      .sort({ createdAt: -1 })
-      .lean();
-
+    const resources = await getResources(query);
     return NextResponse.json(resources);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -42,52 +40,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const accessToken = user.accessToken;
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Google Access Token missing. Please log in with Google.' }, { status: 400 });
-    }
-
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    const title = formData.get('title') as string;
-    const description = formData.get('description') as string;
-    const course = formData.get('course') as string;
-    const category = formData.get('category') as string;
-    const tagsStr = formData.get('tags') as string;
+    const metadata = {
+      title: formData.get('title') as string,
+      description: formData.get('description') as string,
+      course: formData.get('course') as string,
+      semester: parseInt(formData.get('semester') as string) || 1,
+      category: formData.get('category') as string,
+      tags: formData.get('tags') as string,
+      departmentId: user.departmentId
+    };
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
-    }
+    if (!file) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
 
-    // 1. Upload to Google Drive directly
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    
-    const driveResult = await uploadToGoogleDrive(
-      accessToken,
-      buffer,
-      file.name,
-      file.type
-    );
-
-    await dbConnect();
-
-    // 2. Save metadata to MongoDB
-    const resource = await Resource.create({
-      title: title || file.name,
-      description: description || '',
-      url: driveResult.webContentLink || driveResult.webViewLink,
-      googleDriveFileId: driveResult.id,
-      fileType: file.type.split('/')[1] || 'document',
-      fileName: file.name,
-      fileSize: `${(file.size / 1024).toFixed(2)} KB`,
-      course: course || 'General',
-      category: category || 'Other',
-      tags: tagsStr ? tagsStr.split(',').map(t => t.trim()) : [],
-      uploadedBy: new mongoose.Types.ObjectId(user.id),
-      approvalStatus: 'approved' // Auto-approve for now
-    });
-
+    const resource = await createResource(file, metadata, user.id);
     return NextResponse.json(resource, { status: 201 });
   } catch (error: any) {
     console.error('API Resource POST Error:', error);
@@ -98,29 +65,15 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    const user = session?.user as any;
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const user = session.user as any;
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
-    await dbConnect();
-    const resource = await Resource.findById(id);
-    if (!resource) return NextResponse.json({ error: 'Resource not found' }, { status: 404 });
-
-    // Permissions check
-    if (user.role !== 'admin' && resource.uploadedBy.toString() !== user.id) {
-       return NextResponse.json({ error: 'Not authorized to delete' }, { status: 403 });
-    }
-
-    // Delete from Google Drive if token is available
-    if (resource.googleDriveFileId && user.accessToken) {
-      await deleteFromGoogleDrive(user.accessToken, resource.googleDriveFileId);
-    }
-
-    await Resource.findByIdAndDelete(id);
-    return NextResponse.json({ success: true });
+    const result = await deleteResource(id, user.id, user.role);
+    return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

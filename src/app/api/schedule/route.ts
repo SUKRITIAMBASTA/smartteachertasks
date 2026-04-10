@@ -28,22 +28,49 @@ export async function GET(req: NextRequest) {
 
     // 1. Build Query with Visibility Gates
     let query: any = {};
-    if (departmentId) query.departmentId = departmentId;
-    if (semester) query.semester = Number(semester);
-    if (facultyId) query.facultyId = facultyId;
-    if (roomId) query.roomId = roomId;
+    query.type = type;
 
-    // 🔒 Students/Faculty can ONLY see approved routines
-    const userRole = (session.user as any).role;
-    if (userRole !== 'admin') {
+    const user = session.user as any;
+
+    // Enforce data isolation based on role
+    if (user.role === 'admin') {
+      if (departmentId) query.departmentId = departmentId;
+      if (semester) query.semester = Number(semester);
+      if (facultyId) query.facultyId = facultyId;
+      if (roomId) query.roomId = roomId;
+    } else if (user.role === 'faculty') {
+      // 👨‍🏫 Faculty: Locked to semesters they actually teach in, and ALWAYS restricted to their own classes
+      const taughtSubjects = await Subject.find({ assignedFaculty: user.id }).lean();
+      const taughtSemesters = [...new Set(taughtSubjects.map(s => s.semester))];
+
+      query.facultyId = user.id; // 🔥 Strict locking: Only show their own routine entries
+
+      if (semester) {
+        const requestedSem = Number(semester);
+        if (taughtSemesters.includes(requestedSem)) {
+          query.semester = requestedSem;
+        } else {
+          return NextResponse.json({ error: 'Access denied: You are not assigned to this semester.' }, { status: 403 });
+        }
+      }
+
+      if (departmentId) query.departmentId = departmentId;
+      query.status = 'approved';
+
+    } else if (user.role === 'student') {
+      // 🎓 Student: Default to assigned department/semester
+      query.departmentId = departmentId || user.departmentId;
+      query.semester = semester ? Number(semester) : (user.semester || 1);
+
+      // 🔒 Finality: Only show approved routines in production
       query.status = 'approved';
     }
 
     // 2. Fetch & Populate for full routine context
     const schedules = await Schedule.find(query)
-      .populate('subjectId', 'name code')
-      .populate('facultyId', 'name email')
-      .populate('roomId', 'roomNo type')
+      .populate({ path: 'subjectId', select: 'name code' })
+      .populate({ path: 'facultyId', select: 'name email' })
+      .populate({ path: 'roomId', select: 'roomNo type' })
       .sort({ date: 1, timeSlot: 1 })
       .lean();
 

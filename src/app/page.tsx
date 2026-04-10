@@ -32,10 +32,10 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-4">
           <Link href="/login" className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors hidden sm:block">
-            Sign In
+            Login
           </Link>
-          <Link href="/register" className="text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-5 py-2.5 rounded-full transition-all shadow-md shadow-slate-900/20 active:scale-95">
-            Get Started
+          <Link href="/contact" className="text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-5 py-2.5 rounded-full transition-all shadow-md shadow-slate-900/20 active:scale-95">
+            Support
           </Link>
         </div>
       </header>
@@ -57,11 +57,11 @@ export default function LandingPage() {
           </motion.p>
 
           <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/register" className="flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-1 active:scale-95 text-lg">
+            <Link href="/contact" className="flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-600/25 transition-all hover:-translate-y-1 active:scale-95 text-lg">
               Get Started <ArrowRight size={20} />
             </Link>
             <Link href="/login" className="flex items-center justify-center w-full sm:w-auto px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-2xl shadow-sm border border-slate-200 transition-all text-lg">
-              Sign In
+              Login
             </Link>
           </motion.div>
         </motion.div>

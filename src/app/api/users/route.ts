@@ -14,8 +14,19 @@ export async function GET(req: NextRequest) {
       const stats = await getUserStats();
       return NextResponse.json(stats);
     }
-    const users = await getAllUsers();
-    return NextResponse.json(users);
+
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const filters = {
+      role: searchParams.get('role'),
+      institution: searchParams.get('institution'),
+      departmentId: searchParams.get('departmentId'),
+      search: searchParams.get('search'),
+      idPending: searchParams.get('idPending'),
+    };
+
+    const result = await getAllUsers(filters, page, limit);
+    return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

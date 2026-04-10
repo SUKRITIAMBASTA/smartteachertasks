@@ -5,6 +5,7 @@ export interface ISubjectDoc extends Document {
   code: string;
   departmentId: mongoose.Types.ObjectId;
   semester: number;
+  session: 'even' | 'odd';
   syllabus: string;
   requiredClasses: number;
   assignedFaculty: mongoose.Types.ObjectId | null;
@@ -18,6 +19,7 @@ const SubjectSchema = new Schema<ISubjectDoc>(
     code: { type: String, required: true },
     departmentId: { type: Schema.Types.ObjectId, ref: 'Department', required: true },
     semester: { type: Number, required: true },
+    session: { type: String, enum: ['even', 'odd'], default: 'even' },
     syllabus: { type: String },
     requiredClasses: { type: Number, default: 40 },
     assignedFaculty: { type: Schema.Types.ObjectId, ref: 'User', default: null },

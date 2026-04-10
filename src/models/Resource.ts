@@ -8,7 +8,10 @@ export interface IResourceDoc extends Document {
   fileName: string;
   fileSize: string;
   course: string;
-  googleDriveFileId?: string;
+  semester: number;
+  publicId?: string;
+  resourceType?: string;
+  departmentId?: mongoose.Types.ObjectId;
   uploadedBy: mongoose.Types.ObjectId;
   tags: string[];
   category: 'Lecture Notes' | 'Syllabus' | 'Reference Material' | 'Class Timetable' | 'Exam Schedule - Mid Sem' | 'Exam Schedule - End Sem' | 'Other';
@@ -26,7 +29,10 @@ const ResourceSchema = new Schema<IResourceDoc>(
     fileName: { type: String, default: '' },
     fileSize: { type: String, default: '' },
     course: { type: String, default: 'General' },
-    googleDriveFileId: { type: String },
+    semester: { type: Number, default: 1 },
+    publicId: { type: String },
+    resourceType: { type: String, default: 'raw' },
+    departmentId: { type: Schema.Types.ObjectId, ref: 'Department' },
     uploadedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     category: { 
       type: String, 

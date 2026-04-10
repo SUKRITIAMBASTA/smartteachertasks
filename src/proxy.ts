@@ -20,7 +20,7 @@ export async function proxy(request: NextRequest) {
 
   // 2. Automated Redirects
   if (pathname.startsWith('/register')) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL('/contact', request.url));
   }
 
   // 3. Global Authentication Gate
